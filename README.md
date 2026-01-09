@@ -59,27 +59,3 @@ chmod 600 ~/.kaggle/kaggle.json
 # 5. Download and prepare data
 make data
 ```
-
-### Reproducibility
-
-All experiments use fixed random seeds (seed=42). The `make requirements` command automatically saves your exact installed versions to `requirements-installed.txt` for reproducibility. Hardware and software specifications are logged in MLflow experiments.
-
-## Quick Start
-
-```bash
-make train      # Train model
-make evaluate   # Evaluate on test set
-make serve      # Launch inference API (http://localhost:8000)
-mlflow ui       # View experiment tracking (http://localhost:5000)
-```
-
-## Project Status
-
-- [x] Project setup and infrastructure
-- [ ] Data acquisition and EDA
-- [ ] Data preprocessing pipeline
-- [ ] Model training
-- [ ] Evaluation and metrics
-- [ ] Explainability (Grad-CAM)
-- [ ] Deployment API
-- [ ] Technical report
