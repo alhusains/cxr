@@ -1,10 +1,9 @@
-.PHONY: help create_environment requirements requirements-dev data train evaluate serve clean test lint format
+.PHONY: help create_environment requirements data train evaluate serve clean test lint format
 
 help:
 	@echo "Available commands:"
 	@echo "  make create_environment  - Create Python virtual environment"
-	@echo "  make requirements        - Install Python dependencies (exact versions)"
-	@echo "  make requirements-dev    - Install dev dependencies"
+	@echo "  make requirements        - Install all dependencies"
 	@echo "  make data               - Download and process data from Kaggle"
 	@echo "  make train              - Train model with default config"
 	@echo "  make evaluate           - Evaluate trained model"
@@ -17,28 +16,17 @@ help:
 create_environment:
 	python3 -m venv venv
 	@echo "=========================================="
-	@echo "Virtual environment created successfully!"
-	@echo "Activate with: source venv/bin/activate"
+	@echo "Virtual environment created!"
+	@echo "Activate: source venv/bin/activate"
 	@echo "=========================================="
 
 requirements:
 	pip install --upgrade pip setuptools wheel
-	pip install -e .
-	@echo "=========================================="
-	@echo "Dependencies installed from pyproject.toml"
-	@echo "For reproducibility verification, run:"
-	@echo "  pip freeze > installed-versions.txt"
-	@echo "=========================================="
-
-requirements-dev:
-	pip install --upgrade pip setuptools wheel
 	pip install -e ".[dev]"
-
-requirements-lock:
-	pip install --upgrade pip setuptools wheel
-	pip install -r requirements-lock.txt
+	pip freeze > requirements-installed.txt
 	@echo "=========================================="
-	@echo "Exact locked versions installed!"
+	@echo "Dependencies installed successfully!"
+	@echo "Installed versions saved to requirements-installed.txt"
 	@echo "=========================================="
 
 data:

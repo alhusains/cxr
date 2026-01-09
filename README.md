@@ -33,60 +33,53 @@ A production-ready deep learning system for chest X-ray pathology classification
 ## Setup
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.8+ (tested with 3.10-3.13)
 - CUDA-capable GPU (recommended)
 - Kaggle API credentials
 
 ### Installation
 
-1. Clone the repository:
 ```bash
+# 1. Clone and navigate
 git clone <repository-url>
 cd cxr
-```
 
-2. Create virtual environment:
-```bash
+# 2. Create and activate virtual environment
 make create_environment
 source venv/bin/activate
-```
 
-3. Install dependencies:
-```bash
+# 3. Install all dependencies
 make requirements
 
-```
-
-4. Verify installation:
-```bash
-python --version  # Should show Python 3.8-3.11
-which python      # Should show path to venv/bin/python
-pip list          # Shows installed packages in environment
-```
-
-5. Configure Kaggle credentials:
-```bash
-# Place kaggle.json in ~/.kaggle/
+# 4. Configure Kaggle API
 mkdir -p ~/.kaggle
 cp /path/to/kaggle.json ~/.kaggle/
 chmod 600 ~/.kaggle/kaggle.json
-```
 
-6. Download and prepare data:
-```bash
+# 5. Download and prepare data
 make data
 ```
 
-For detailed reproducibility information, see `REPRODUCIBILITY.md`.
+### Reproducibility
+
+All experiments use fixed random seeds (seed=42). The `make requirements` command automatically saves your exact installed versions to `requirements-installed.txt` for reproducibility. Hardware and software specifications are logged in MLflow experiments.
 
 ## Quick Start
 
-### Training
 ```bash
-make train
+make train      # Train model
+make evaluate   # Evaluate on test set
+make serve      # Launch inference API (http://localhost:8000)
+mlflow ui       # View experiment tracking (http://localhost:5000)
 ```
 
-### Evaluation
-```bash
-make evaluate
-```
+## Project Status
+
+- [x] Project setup and infrastructure
+- [ ] Data acquisition and EDA
+- [ ] Data preprocessing pipeline
+- [ ] Model training
+- [ ] Evaluation and metrics
+- [ ] Explainability (Grad-CAM)
+- [ ] Deployment API
+- [ ] Technical report

@@ -25,6 +25,9 @@ venv/
 env/
 ENV/
 
+# Requirements snapshots
+requirements-installed.txt
+
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb_checkpoints
