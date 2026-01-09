@@ -1,0 +1,105 @@
+# Default configuration for CXR Classification
+
+# Random seed for reproducibility
+seed: 42
+
+# Data configuration
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  kaggle_dataset: muhammadrehan00/chest-xray-dataset
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  stratify: true
+
+# Image preprocessing
+preprocessing:
+  target_size: [224, 224]
+  normalize_mean: [0.485, 0.456, 0.406]
+  normalize_std: [0.229, 0.224, 0.225]
+  maintain_aspect_ratio: false
+  use_clahe: false
+
+# Data augmentation (medical-appropriate)
+augmentation:
+  horizontal_flip: true
+  vertical_flip: false
+  rotation_degrees: 10
+  translation: 0.05
+  scale: [0.95, 1.05]
+  brightness: 0.1
+  contrast: 0.1
+  gaussian_noise: 0.01
+
+# Model configuration
+model:
+  architecture: resnet50  # resnet50, densenet121, efficientnet_b0
+  pretrained: true
+  pretrained_source: imagenet
+  num_classes: 2
+  dropout: 0.5
+  freeze_backbone_epochs: 5
+
+# Training configuration
+training:
+  batch_size: 32
+  epochs: 100
+  optimizer: adam
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: cosine
+  scheduler_params:
+    T_max: 100
+    eta_min: 0.000001
+  early_stopping_patience: 15
+  gradient_clip_value: 1.0
+  mixed_precision: true
+
+# Loss function
+loss:
+  type: focal_loss  # cross_entropy, focal_loss, weighted_cross_entropy
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  class_weights: auto  # auto or list of weights
+
+# Evaluation
+evaluation:
+  metrics:
+    - accuracy
+    - auc_roc
+    - f1
+    - precision
+    - recall
+    - specificity
+    - sensitivity
+  calibration:
+    n_bins: 10
+  threshold_optimization: youden
+
+# Explainability
+explainability:
+  method: gradcam  # gradcam, gradcam++
+  target_layer: layer4
+  num_examples: 50
+
+# Deployment
+deployment:
+  model_registry: models
+  api_host: 0.0.0.0
+  api_port: 8000
+  max_batch_size: 16
+  confidence_threshold: 0.5
+
+# Logging and tracking
+logging:
+  mlflow_tracking_uri: mlruns
+  experiment_name: cxr_classification
+  log_interval: 10
+  save_checkpoint_interval: 5
+
+# Compute
+compute:
+  device: cuda  # cuda, cpu
+  num_workers: 4
+  pin_memory: true
