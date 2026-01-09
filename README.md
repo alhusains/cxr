@@ -48,15 +48,23 @@ cd cxr
 2. Create virtual environment:
 ```bash
 make create_environment
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 ```
 
 3. Install dependencies:
 ```bash
 make requirements
+
 ```
 
-4. Configure Kaggle credentials:
+4. Verify installation:
+```bash
+python --version  # Should show Python 3.8-3.11
+which python      # Should show path to venv/bin/python
+pip list          # Shows installed packages in environment
+```
+
+5. Configure Kaggle credentials:
 ```bash
 # Place kaggle.json in ~/.kaggle/
 mkdir -p ~/.kaggle
@@ -64,10 +72,12 @@ cp /path/to/kaggle.json ~/.kaggle/
 chmod 600 ~/.kaggle/kaggle.json
 ```
 
-5. Download and prepare data:
+6. Download and prepare data:
 ```bash
 make data
 ```
+
+For detailed reproducibility information, see `REPRODUCIBILITY.md`.
 
 ## Quick Start
 
@@ -80,33 +90,3 @@ make train
 ```bash
 make evaluate
 ```
-
-### Launch Inference API
-```bash
-make serve
-```
-
-## Reproducibility
-
-All experiments use fixed random seeds. Hardware and software specifications are documented in the technical report.
-
-## Model Performance
-
-Results on test set:
-- Metrics and visualizations available in `reports/`
-- MLflow tracking UI: `mlflow ui`
-
-## Project Status
-
-- [x] Project setup
-- [ ] Data acquisition and EDA
-- [ ] Preprocessing pipeline
-- [ ] Model training
-- [ ] Evaluation
-- [ ] Explainability
-- [ ] Deployment
-- [ ] Documentation
-
-## License
-
-This project is part of a technical assessment for SickKids Machine Learning Specialist position.
