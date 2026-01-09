@@ -67,3 +67,7 @@ Thumbs.db
 reports/figures/*.png
 reports/figures/*.jpg
 reports/metrics/*.csv
+TECHNICAL_REPORT.md
+REPRODUCIBILITY.md
+
+
