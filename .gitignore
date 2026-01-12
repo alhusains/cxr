@@ -67,7 +67,11 @@ Thumbs.db
 reports/figures/*.png
 reports/figures/*.jpg
 reports/metrics/*.csv
+reports/EDA_REPORT.md
+reports/PREPROCESSING_REPORT.md
+reports/metrics/data_quality_report.json
 TECHNICAL_REPORT.md
 REPRODUCIBILITY.md
+src/data/download_data.py
 
 

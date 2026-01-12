@@ -31,7 +31,7 @@ requirements:
 
 data:
 	python src/data/download_data.py
-	python src/data/prepare_data.py
+	python src/data/eda.py
 
 train:
 	python src/models/train.py
