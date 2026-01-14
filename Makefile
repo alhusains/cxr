@@ -1,12 +1,13 @@
-.PHONY: help create_environment requirements data train evaluate serve clean test lint format
+.PHONY: help create_environment requirements data train train-tune evaluate serve clean test lint format
 
 help:
 	@echo "Available commands:"
 	@echo "  make create_environment  - Create Python virtual environment"
 	@echo "  make requirements        - Install all dependencies"
 	@echo "  make data               - Download and process data from Kaggle"
-	@echo "  make train              - Train model with default config"
-	@echo "  make evaluate           - Evaluate trained model"
+	@echo "  make train              - Train model with default hyperparameters"
+	@echo "  make train-tune         - Train with hyperparameter tuning (Bayesian optimization)"
+	@echo "  make evaluate           - Evaluate trained model on test set"
 	@echo "  make serve              - Launch inference API"
 	@echo "  make test               - Run tests"
 	@echo "  make lint               - Run linting checks"
@@ -36,11 +37,32 @@ data:
 train:
 	python src/models/train.py
 
+train-tune:
+	python src/models/train.py --tune --n_trials 15
+
 evaluate:
 	python src/evaluation/evaluate.py
 
+evaluate-robustness:
+	python src/evaluation/robustness.py
+
+explainability:
+	python src/explainability/gradcam.py
+
 serve:
-	uvicorn src.deployment.api:app --host 0.0.0.0 --port 8000 --reload
+	uvicorn src.deployment.api:app --host 0.0.0.0 --port 8001 --reload
+
+serve-prod:
+	uvicorn src.deployment.api:app --host 0.0.0.0 --port 8001 --workers 4
+
+docker-build:
+	docker build -t cxr-api:1.0.0 .
+
+docker-run:
+	docker-compose up -d
+
+docker-stop:
+	docker-compose down
 
 test:
 	pytest tests/ -v
