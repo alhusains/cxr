@@ -1,0 +1,12 @@
+{
+  "best_params": {
+    "learning_rate": 0.0003498227300675491,
+    "weight_decay": 1.1753040267662469e-05,
+    "dropout": 0.5163006582082583,
+    "freeze_epochs": 7,
+    "batch_size": 16,
+    "focal_gamma": 2.491973307998572
+  },
+  "best_val_loss": 0.01423375191916136,
+  "n_trials": 15
+}

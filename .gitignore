@@ -43,12 +43,15 @@ data/external/*
 !data/processed/.gitkeep
 !data/external/.gitkeep
 
-# Models
+# Models (too large for GitHub - download separately)
 models/*
 !models/.gitkeep
+!models/best_hyperparameters.json
 
-# MLflow
+# MLflow (too large for GitHub - 17GB of artifacts)
 mlruns/
+mlflow.db
+*.db
 
 # IDE
 .vscode/
@@ -63,15 +66,18 @@ Thumbs.db
 # Logs
 *.log
 
-# Reports (keep structure, ignore large files)
-reports/figures/*.png
-reports/figures/*.jpg
-reports/metrics/*.csv
+# Reports (keep structure, ignore internal docs)
 reports/EDA_REPORT.md
 reports/PREPROCESSING_REPORT.md
+reports/PREPROCESSING_DECISIONS.md
+reports/ARCHITECTURE_JUSTIFICATION.md
 reports/metrics/data_quality_report.json
-TECHNICAL_REPORT.md
 REPRODUCIBILITY.md
+DEPLOYMENT_STRATEGY.md
+INSTALLATION.md
+PROJECT_SUMMARY.md
+SUBMISSION_GUIDE.md
+TASK5_SCORING.md
 src/data/download_data.py
 
 

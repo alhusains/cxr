@@ -1,0 +1,42 @@
+# Docker Compose for Chest X-Ray Classification System
+
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: cxr-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models:ro
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  mlflow:
+    image: python:3.10-slim
+    container_name: cxr-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: mlflow server --backend-store-uri file:///mlruns --host 0.0.0.0 --port 5000
+    restart: unless-stopped
+
+networks:
+  default:
+    name: cxr-network
