@@ -472,9 +472,34 @@ batch_size: 32
 
 **Runtime:**
 - Low-confidence flagging (< 0.7)
+- **Bayesian uncertainty estimation** (Monte Carlo Dropout)
+- Epistemic uncertainty quantification for each prediction
 - Data drift monitoring
 - Human-in-the-loop review
 - Audit trail logging
+
+### 6.5 Uncertainty Quantification
+
+**Method:** Monte Carlo Dropout (Bayesian Deep Learning)
+
+**Implementation:**
+- Enable dropout during inference (model.train() mode)
+- Run N forward passes (default: 10 iterations)
+- Compute mean prediction and standard deviation across iterations
+- Standard deviation = epistemic (model) uncertainty
+
+**Clinical Interpretation:**
+- **High uncertainty (σ > 0.15):** Model is uncertain → mandatory expert review
+- **Moderate uncertainty (0.10 < σ < 0.15):** Consider expert review
+- **Low uncertainty (σ < 0.10):** Model is confident
+
+**Benefits:**
+- Identifies out-of-distribution samples
+- Flags ambiguous cases automatically
+- Safer deployment in clinical settings
+- Provides actionable confidence intervals
+
+**Endpoint:** `/predict_with_uncertainty?mc_iterations=10`
 
 ---
 
@@ -499,14 +524,16 @@ batch_size: 32
 
 | Endpoint | Method | Purpose | Auth |
 |----------|--------|---------|------|
+| `/` | GET | **Interactive web demo** | None |
 | `/health` | GET | Health check | None |
 | `/predict` | POST | Single prediction | API Key |
+| `/predict_with_uncertainty` | POST | **MC Dropout uncertainty** | API Key |
 | `/batch_predict` | POST | Batch (≤10) predictions | API Key |
-| `/metrics` | GET | Performance metrics | API Key |
-| `/drift_report` | GET | Data drift analysis | API Key |
+| `/metrics` | GET | Performance metrics | None |
+| `/drift_report` | GET | Data drift analysis | None |
 
 **Input:** JPEG/PNG image (128×128 to 4096×4096)  
-**Output:** JSON with prediction, confidence, probabilities, warnings
+**Output:** JSON with prediction, confidence, probabilities, warnings (+ uncertainty for MC endpoint)
 
 ### 7.3 Input Validation & Preprocessing
 
@@ -532,22 +559,29 @@ batch_size: 32
 - Error rate
 - Availability
 
-**Data Drift Detection:**
-- Input statistics (mean, std, aspect ratio)
-- Confidence distribution
-- Class distribution
-- Warning rate
+**Data Drift Detection (Statistical):**
+- **Reference Distribution:** Training set statistics computed offline and stored
+- **Statistical Tests:**
+  - Kolmogorov-Smirnov test: Compares incoming image intensity distributions against training reference
+  - Z-score analysis: Detects mean intensity shifts (3-sigma threshold for alerts)
+  - Confidence drift: Monitors prediction confidence degradation
+  - Variability changes: Tracks standard deviation shifts
+- **Rolling Window:** Analyzes last 50-100 predictions for statistically significant drift
+- **Quality Checks:** Separate validation for exposure, contrast, and aspect ratio issues
 
 **Alerts Triggered:**
-- Confidence drops > 10%
+- **Critical:** Distribution drift detected (KS p-value < 0.01) or z-score > 3.0
+- **Warning:** Moderate drift (KS p-value < 0.05) or z-score > 2.0
+- Confidence drops > 15% from training baseline
 - Warning rate > 20%
 - Error rate > 1%
 - Latency > 500ms (p95)
 
 **Actions:**
-- Alert ML team
-- Flag predictions for review
-- Trigger retraining workflow
+- Alert ML team with drift analysis report
+- Flag predictions for human review
+- Trigger investigation workflow
+- Consider model retraining if drift persists
 
 ### 7.5 Model Versioning & Registry
 
@@ -572,14 +606,19 @@ batch_size: 32
 - AES-256 encryption at rest
 
 **Access Control:**
-- API key authentication
+- **API key authentication (production-ready):**
+  - Environment variable configuration (`CXR_API_KEY`)
+  - Required for all prediction endpoints
+  - Failed attempts logged with client IP
+  - Configurable per deployment environment
 - Role-based permissions (radiologist, technician, admin)
-- Audit trail logging
+- Request validation and rejection for missing/invalid credentials
 
 **Audit Trail:**
-- All requests logged (timestamp, user, endpoint, outcome)
+- All requests logged (timestamp, user, endpoint, outcome, client IP)
 - 7-year retention (compliance requirement)
 - Immutable logs (tamper-proof)
+- Security event tracking (authentication failures, rate limiting)
 
 ### 7.7 Incident Response
 
@@ -669,18 +708,55 @@ mlflow ui
 docker build -t cxr-api:1.0.0 .
 ```
 
+### 8.5 CI/CD Pipeline
+
+**GitHub Actions Workflow:**
+- **Linting:** flake8 checks for code quality
+- **Security:** bandit scans for vulnerabilities
+- **Testing:** pytest runs unit tests
+- **Docker:** Validates Dockerfile and docker-compose.yml
+- **Triggers:** On push to main/master/dev branches and pull requests
+
+**Files:** `.github/workflows/ci.yml`
+
+**Benefits:**
+- Automated code quality checks
+- Early detection of issues
+- Ensures all commits pass basic tests
+- Production-grade development workflow
+
 ---
 
 ## 9. Conclusion
 
 This project delivers a **production-ready chest X-ray classification system** with:
 
-1- **Strong Performance:** 77.8% accuracy, 0.94 AUC-ROC  
-2- **Clinical Explainability:** Grad-CAM validates diagnostic focus  
-3- **Robust to Drift:** 1-2% degradation under scanner variations  
-4- **Safe Deployment:** Human-in-the-loop, monitoring, audit trails  
-5- **Compliant:** HIPAA-aware PHI handling, secure API  
-6 **Reproducible:** Docker, MLflow, fixed seeds
+1. **Strong Performance:** 77.8% accuracy, 0.94 AUC-ROC  
+2. **Clinical Explainability:** Grad-CAM validates diagnostic focus  
+3. **Robust to Drift:** 1-2% degradation under scanner variations  
+4. **Safe Deployment:** Human-in-the-loop, monitoring, audit trails  
+5. **Compliant:** HIPAA-aware PHI handling, secure API with authentication  
+6. **Production-Ready Monitoring:**
+   - Statistical drift detection (KS test, z-score analysis)
+   - Real-time comparison against training distribution
+   - Automated alerting for performance degradation
+7. **Reproducible:** Docker, MLflow, fixed seeds, CI/CD pipeline
+8. **Advanced Safety Features:**
+   - Monte Carlo Dropout uncertainty quantification
+   - Interactive web demo for stakeholder evaluation
+   - Automated testing and security scanning
+
+### Key Production Features
+
+**Security:** Environment-based API key authentication prevents unauthorized access while remaining flexible for different deployment environments.
+
+**Drift Detection:** Statistical comparison of incoming data against training distribution reference enables early detection of dataset shift, scanner changes, or data quality degradation before model performance suffers.
+
+**Uncertainty Estimation:** Bayesian uncertainty via Monte Carlo Dropout identifies ambiguous cases, providing epistemic uncertainty estimates critical for safe clinical deployment. High-uncertainty predictions are automatically flagged for expert review.
+
+**Interactive Demo:** Web-based interface allows non-technical stakeholders to test the system with real X-rays, view predictions, probabilities, and uncertainty estimates in real-time.
+
+**CI/CD:** Automated GitHub Actions pipeline ensures code quality, security, and testing on every commit, maintaining production-grade development standards.
 
 ---
 
