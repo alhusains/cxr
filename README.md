@@ -8,11 +8,11 @@ This system classifies chest X-rays into three categories: **Normal**, **Pneumon
 
 ### Key Highlights
 
-- **Performance**: 78.4% accuracy, 0.94 macro AUC-ROC on test set
+- **Performance**: 77.8% accuracy, 0.94 macro AUC-ROC on test set
 - **Architecture**: DenseNet-121 with ImageNet pretraining
 - **Training**: Bayesian hyperparameter optimization with Focal Loss for class imbalance
 - **Explainability**: Grad-CAM visualization validates anatomically correct attention
-- **Robustness**: 3-4% performance degradation under clinical scanner variations
+- **Robustness**: 1-2% performance degradation under clinical scanner variations
 - **Deployment**: FastAPI with monitoring, drift detection, and HIPAA-compliant design
 
 ## Quick Start
@@ -147,28 +147,28 @@ This repository includes comprehensive documentation:
 
 | Metric | Value |
 |--------|-------|
-| Accuracy | 78.4% |
-| Macro F1 | 0.80 |
+| Accuracy | 77.8% |
+| Macro F1 | 0.79 |
 | Macro AUC-ROC | 0.94 |
-| Macro Precision | 0.81 |
-| Macro Recall | 0.82 |
+| Macro Precision | 0.86 |
+| Macro Recall | 0.78 |
 
 ### Per-Class Performance
 
 | Class | Precision | Recall | F1 | AUC-ROC |
 |-------|-----------|--------|----|---------| 
-| Normal | 0.66 | 0.83 | 0.73 | 0.89 |
-| Pneumonia | 0.79 | 1.00 | 0.88 | 0.99 |
-| Tuberculosis | 1.00 | 0.63 | 0.77 | 0.94 |
+| Normal | 0.62 | 0.97 | 0.76 | 0.88 |
+| Pneumonia | 0.96 | 0.73 | 0.83 | 0.99 |
+| Tuberculosis | 0.98 | 0.64 | 0.77 | 0.94 |
 
 ### Robustness Evaluation
 
 Performance under various corruption conditions:
-- **Clean (test set)**: 78.3% accuracy, 0.94 macro AUC-ROC
-- **Clinical corruptions**: 74.9% accuracy (-3.4%), 0.87 macro AUC-ROC
-- **Severe corruptions**: 75.5% accuracy (-2.9%), 0.91 macro AUC-ROC
+- **Clean (test set)**: 77.5% accuracy, 0.94 macro AUC-ROC
+- **Clinical corruptions**: 76.4% accuracy (-1.1%), 0.89 macro AUC-ROC
+- **Severe corruptions**: 77.3% accuracy (-0.1%), 0.92 macro AUC-ROC
 
-Clinical corruptions simulate realistic scanner variations (brightness/contrast shifts, blur, noise, resolution changes). The model demonstrates strong robustness with <4% accuracy degradation under clinical conditions.
+Clinical corruptions simulate realistic scanner variations (brightness/contrast shifts, blur, noise, resolution changes). The model demonstrates excellent robustness with <2% accuracy degradation under clinical conditions.
 
 ## API Endpoints
 
