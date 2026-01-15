@@ -59,10 +59,18 @@ make explainability
 ### Deployment
 
 ```bash
+# Compute training distribution statistics (required for drift detection)
+python src/deployment/compute_training_stats.py
+
 # Start API server (development)
+# Set API key via environment variable (default: dev-key-please-change-in-production)
+export CXR_API_KEY="your-secure-api-key-here"
 make serve
 
-# Access interactive API documentation
+# Access web demo (interactive UI)
+# Visit: http://localhost:8001/
+
+# Access API documentation
 # Visit: http://localhost:8001/docs
 
 # Run API tests
@@ -174,8 +182,10 @@ Clinical corruptions simulate realistic scanner variations (brightness/contrast 
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/` | GET | **Interactive web demo** |
 | `/health` | GET | Service health check |
 | `/predict` | POST | Single image prediction |
+| `/predict_with_uncertainty` | POST | **Prediction with MC Dropout uncertainty** |
 | `/batch_predict` | POST | Batch predictions (max 10) |
 | `/metrics` | GET | API performance metrics |
 | `/drift_report` | GET | Data drift analysis |
@@ -186,10 +196,16 @@ Clinical corruptions simulate realistic scanner variations (brightness/contrast 
 ```python
 import requests
 
-# Single prediction
+# Single prediction with API key authentication
+headers = {"X-API-Key": "your-secure-api-key-here"}
+
 with open("chest_xray.jpg", "rb") as f:
     files = {"file": ("xray.jpg", f, "image/jpeg")}
-    response = requests.post("http://localhost:8001/predict", files=files)
+    response = requests.post(
+        "http://localhost:8001/predict", 
+        files=files,
+        headers=headers
+    )
     
 result = response.json()
 print(f"Prediction: {result['prediction']}")
@@ -208,17 +224,31 @@ All visualizations available in `reports/figures/gradcam_examples.png`
 
 ## Deployment Features
 
+### Interactive Demo
+- **Web-based UI** for uploading X-rays and viewing predictions in real-time
+- Visual probability bars and confidence scores
+- Warning display for quality issues and uncertainty
+- No external dependencies - served directly from FastAPI
+
+### Uncertainty Quantification
+- **Monte Carlo Dropout** for Bayesian uncertainty estimation
+- Epistemic uncertainty per class (model uncertainty)
+- Automatic warnings for high-uncertainty predictions
+- Safer clinical deployment with uncertainty-aware decision-making
+
 ### Monitoring
 - Real-time prediction latency tracking
-- Data drift detection (input statistics, confidence distribution)
+- **Statistical data drift detection** using Kolmogorov-Smirnov test and z-score analysis
+- Comparison of incoming data against training distribution reference
 - Performance metrics aggregation
-- Automated alerting for anomalies
+- Automated alerting for anomalies (confidence drops, distribution shifts)
 
 ### Security & Compliance
 - HIPAA-compliant PHI handling (no image storage, anonymized IDs)
 - TLS encryption for data transmission
-- API key authentication
+- **Production-ready API key authentication** (environment variable configuration)
 - Comprehensive audit trails (7-year retention)
+- Request logging with client IP tracking
 - Incident response procedures
 
 ### Scalability
@@ -234,6 +264,7 @@ All experiments are fully reproducible:
 - **Environment**: `pyproject.toml` + `requirements-installed.txt`
 - **Experiment tracking**: MLflow logs all hyperparameters, metrics, and artifacts
 - **Containerization**: Docker ensures environment consistency
+- **CI/CD Pipeline**: GitHub Actions automated testing and linting
 
 ```bash
 # View experiment history
