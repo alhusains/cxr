@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chest X-Ray Classification System - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-section.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .preview-section {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .result-section {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+        }
+        
+        .prediction-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .prediction-label {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: width 0.5s ease;
+        }
+        
+        .probabilities {
+            margin-top: 20px;
+        }
+        
+        .prob-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .prob-bar {
+            width: 200px;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-left: 15px;
+        }
+        
+        .prob-fill {
+            height: 100%;
+            background: #667eea;
+            transition: width 0.3s ease;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .warning-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .api-key-section {
+            background: #fff8e1;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .api-key-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🫁 Chest X-Ray Classification System</h1>
+            <p>AI-Powered Pathology Detection | DenseNet-121 Architecture</p>
+        </div>
+        
+        <div class="content">
+            <div class="api-key-section">
+                <h3>🔑 API Authentication</h3>
+                <p>Enter your API key (default for development: <code>dev-key-please-change-in-production</code>)</p>
+                <input type="text" id="apiKey" class="api-key-input" placeholder="Enter API key" value="dev-key-please-change-in-production">
+            </div>
+            
+            <div class="info-box">
+                <strong>ℹ️ About This System:</strong> This demo uses a production-ready DenseNet-121 model trained on 25,553 chest X-rays to classify images as Normal, Pneumonia, or Tuberculosis with 77.8% accuracy and 0.94 AUC-ROC.
+            </div>
+            
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to upload or drag & drop a chest X-ray image</div>
+                <p style="color: #999; font-size: 0.9em;">Supported: JPEG, PNG (128×128 to 4096×4096 pixels)</p>
+                <input type="file" id="fileInput" class="file-input" accept="image/jpeg,image/png">
+            </div>
+            
+            <div class="preview-section" id="previewSection">
+                <h3>📷 Uploaded Image:</h3>
+                <img id="previewImage" class="preview-image" alt="Preview">
+                <br>
+                <button class="btn" id="predictBtn">🔬 Analyze X-Ray</button>
+                <button class="btn" id="resetBtn">🔄 Upload Different Image</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analyzing X-ray image...</p>
+            </div>
+            
+            <div class="result-section" id="resultSection">
+                <h2>📊 Analysis Results</h2>
+                
+                <div class="prediction-box">
+                    <div class="prediction-label" id="predictionLabel">-</div>
+                    <div>
+                        <strong>Confidence:</strong>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceFill">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="probabilities">
+                    <h3>Class Probabilities:</h3>
+                    <div class="prob-item">
+                        <span>Normal:</span>
+                        <div class="prob-bar">
+                            <div class="prob-fill" id="probNormal"></div>
+                        </div>
+                        <span id="probNormalText">-</span>
+                    </div>
+                    <div class="prob-item">
+                        <span>Pneumonia:</span>
+                        <div class="prob-bar">
+                            <div class="prob-fill" id="probPneumonia"></div>
+                        </div>
+                        <span id="probPneumoniaText">-</span>
+                    </div>
+                    <div class="prob-item">
+                        <span>Tuberculosis:</span>
+                        <div class="prob-bar">
+                            <div class="prob-fill" id="probTuberculosis"></div>
+                        </div>
+                        <span id="probTuberculosisText">-</span>
+                    </div>
+                </div>
+                
+                <div id="warningsSection"></div>
+                
+                <div class="info-box" style="margin-top: 20px;">
+                    <strong>⚠️ Clinical Note:</strong> This is a research demonstration. All predictions should be reviewed by qualified medical professionals. Not for clinical diagnosis.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const previewImage = document.getElementById('previewImage');
+        const predictBtn = document.getElementById('predictBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const apiKeyInput = document.getElementById('apiKey');
+        
+        let selectedFile = null;
+        
+        // Upload section click
+        uploadSection.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleFileSelect(file);
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFileSelect(file);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                uploadSection.style.display = 'none';
+                previewSection.style.display = 'block';
+                resultSection.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Reset button
+        resetBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadSection.style.display = 'block';
+            previewSection.style.display = 'none';
+            resultSection.style.display = 'none';
+        });
+        
+        // Predict button
+        predictBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+            
+            // Show loading
+            loading.style.display = 'block';
+            resultSection.style.display = 'none';
+            predictBtn.disabled = true;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': apiKey
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Prediction failed');
+                }
+                
+                const result = await response.json();
+                displayResults(result);
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+                console.error(error);
+            } finally {
+                loading.style.display = 'none';
+                predictBtn.disabled = false;
+            }
+        });
+        
+        function displayResults(result) {
+            // Prediction label
+            document.getElementById('predictionLabel').textContent = 
+                result.prediction.charAt(0).toUpperCase() + result.prediction.slice(1);
+            
+            // Confidence bar
+            const confidencePercent = (result.confidence * 100).toFixed(1);
+            const confidenceFill = document.getElementById('confidenceFill');
+            confidenceFill.style.width = confidencePercent + '%';
+            confidenceFill.textContent = confidencePercent + '%';
+            
+            // Probabilities
+            const probs = result.probabilities;
+            updateProbability('Normal', probs.normal || 0);
+            updateProbability('Pneumonia', probs.pneumonia || 0);
+            updateProbability('Tuberculosis', probs.tuberculosis || 0);
+            
+            // Warnings
+            const warningsSection = document.getElementById('warningsSection');
+            warningsSection.innerHTML = '';
+            
+            if (result.warnings && result.warnings.length > 0) {
+                result.warnings.forEach(warning => {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.className = 'warning';
+                    warningDiv.innerHTML = `<div class="warning-title">⚠️ Warning:</div>${warning}`;
+                    warningsSection.appendChild(warningDiv);
+                });
+            }
+            
+            // Show results
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function updateProbability(className, value) {
+            const percent = (value * 100).toFixed(1);
+            document.getElementById('prob' + className).style.width = percent + '%';
+            document.getElementById('prob' + className + 'Text').textContent = percent + '%';
+        }
+    </script>
+</body>
+</html>
