@@ -164,9 +164,9 @@ This repository includes comprehensive documentation:
 ### Robustness Evaluation
 
 Performance under various corruption conditions:
-- **Clean (test set)**: 77.5% accuracy, 0.94 macro AUC-ROC
-- **Clinical corruptions**: 76.4% accuracy (-1.1%), 0.89 macro AUC-ROC
-- **Severe corruptions**: 77.3% accuracy (-0.1%), 0.92 macro AUC-ROC
+- **Clean (test set)**: 77.8% accuracy, 0.94 macro AUC-ROC
+- **Clinical corruptions**: 76.4% accuracy (-1.4%), 0.89 macro AUC-ROC
+- **Severe corruptions**: 77.3% accuracy (-0.5%), 0.92 macro AUC-ROC
 
 Clinical corruptions simulate realistic scanner variations (brightness/contrast shifts, blur, noise, resolution changes). The model demonstrates excellent robustness with <2% accuracy degradation under clinical conditions.
 
