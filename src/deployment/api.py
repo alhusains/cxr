@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 import io
 import time
+import os
 from datetime import datetime
 from typing import List, Optional
 import numpy as np
@@ -21,12 +22,14 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 import cv2
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Header
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, validator
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from scipy import stats
 import logging
 import json
 
@@ -66,6 +69,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files for web demo
+static_path = Path("static")
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Global variables
 MODEL = None
 DEVICE = None
@@ -73,6 +81,8 @@ CONFIG = None
 CLASS_NAMES = None
 TRANSFORM = None
 PREDICTION_LOG = []
+EXPECTED_API_KEY = None
+TRAINING_STATS = None
 
 
 class PredictionRequest(BaseModel):
@@ -90,6 +100,13 @@ class PredictionResponse(BaseModel):
     model_version: str = Field(..., description="Model version used")
     timestamp: str = Field(..., description="Prediction timestamp")
     warnings: List[str] = Field(default_factory=list, description="Any warnings")
+
+
+class UncertaintyPredictionResponse(PredictionResponse):
+    """Response model for prediction with uncertainty estimation."""
+    uncertainty: dict = Field(..., description="Epistemic uncertainty per class")
+    prediction_variance: float = Field(..., description="Overall prediction variance")
+    mc_iterations: int = Field(..., description="Number of Monte Carlo iterations")
     
     class Config:
         schema_extra = {
@@ -119,9 +136,14 @@ class HealthResponse(BaseModel):
 
 def load_model():
     """Load trained model and setup."""
-    global MODEL, DEVICE, CONFIG, CLASS_NAMES, TRANSFORM
+    global MODEL, DEVICE, CONFIG, CLASS_NAMES, TRANSFORM, EXPECTED_API_KEY, TRAINING_STATS
     
     logger.info("Loading model and configuration...")
+    
+    # Load API key from environment
+    EXPECTED_API_KEY = os.getenv("CXR_API_KEY", "dev-key-please-change-in-production")
+    if EXPECTED_API_KEY == "dev-key-please-change-in-production":
+        logger.warning("Using default API key - CHANGE THIS IN PRODUCTION!")
     
     # Load config
     CONFIG = load_config()
@@ -150,6 +172,15 @@ def load_model():
         ToTensorV2(),
     ])
     
+    # Load training distribution statistics for drift detection
+    training_stats_path = Path('models/training_distribution_stats.npy')
+    if training_stats_path.exists():
+        TRAINING_STATS = np.load(training_stats_path, allow_pickle=True).item()
+        logger.info("Loaded training distribution statistics for drift detection")
+    else:
+        logger.warning("Training distribution stats not found - drift detection will use fallback method")
+        TRAINING_STATS = None
+    
     logger.info(f"Model loaded successfully on {DEVICE}")
     logger.info(f"Model version: {checkpoint.get('epoch', 'unknown')}")
 
@@ -166,20 +197,27 @@ async def startup_event():
         raise
 
 
-@app.get("/", response_model=dict)
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint."""
-    return {
-        "message": "Chest X-Ray Classification API",
-        "version": "1.0.0",
-        "status": "running",
-        "endpoints": {
-            "health": "/health",
-            "predict": "/predict",
-            "metrics": "/metrics",
-            "docs": "/docs"
-        }
-    }
+    """Root endpoint - serves web demo if available."""
+    demo_path = Path("static/index.html")
+    if demo_path.exists():
+        return demo_path.read_text()
+    else:
+        return """
+        <html>
+            <body>
+                <h1>Chest X-Ray Classification API</h1>
+                <p>Version: 1.0.0 | Status: Running</p>
+                <ul>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/metrics">Metrics</a></li>
+                    <li><a href="/drift_report">Drift Report</a></li>
+                </ul>
+            </body>
+        </html>
+        """
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -263,9 +301,9 @@ def preprocess_image(image: Image.Image) -> torch.Tensor:
     return img_tensor
 
 
-def detect_data_drift(image_stats: dict) -> List[str]:
+def detect_data_quality_issues(image_stats: dict) -> List[str]:
     """
-    Detect potential data drift.
+    Detect data quality issues (not drift, but image quality problems).
     
     Args:
         image_stats: Dictionary with image statistics
@@ -292,8 +330,101 @@ def detect_data_drift(image_stats: dict) -> List[str]:
     return warnings
 
 
+def detect_data_drift(recent_window_size: int = 50) -> dict:
+    """
+    Detect statistical drift by comparing recent predictions against training distribution.
+    
+    Uses Kolmogorov-Smirnov test to compare distributions and z-score for mean shifts.
+    
+    Args:
+        recent_window_size: Number of recent predictions to analyze
+        
+    Returns:
+        Dictionary with drift detection results
+    """
+    if TRAINING_STATS is None:
+        return {
+            'drift_detected': False,
+            'method': 'fallback',
+            'message': 'Training statistics not available - using quality checks only'
+        }
+    
+    # Get recent predictions
+    recent_predictions = PREDICTION_LOG[-recent_window_size:] if len(PREDICTION_LOG) >= recent_window_size else PREDICTION_LOG
+    
+    if len(recent_predictions) < 30:
+        return {
+            'drift_detected': False,
+            'method': 'insufficient_data',
+            'message': f'Need at least 30 samples for drift detection (have {len(recent_predictions)})',
+            'sample_count': len(recent_predictions)
+        }
+    
+    # Extract statistics from recent predictions
+    recent_means = [p['image_stats']['mean'] for p in recent_predictions]
+    recent_stds = [p['image_stats']['std'] for p in recent_predictions]
+    recent_confidences = [p['confidence'] for p in recent_predictions]
+    
+    # Statistical tests
+    drift_warnings = []
+    drift_detected = False
+    
+    # 1. Z-score test for mean intensity shift
+    current_mean = np.mean(recent_means)
+    z_score_mean = abs(current_mean - TRAINING_STATS['mean_intensity']) / TRAINING_STATS['std_intensity']
+    
+    if z_score_mean > 3.0:  # 3-sigma threshold
+        drift_warnings.append(f"Significant mean intensity shift detected (z-score: {z_score_mean:.2f})")
+        drift_detected = True
+    elif z_score_mean > 2.0:
+        drift_warnings.append(f"Moderate mean intensity shift detected (z-score: {z_score_mean:.2f})")
+    
+    # 2. Kolmogorov-Smirnov test for distribution shift
+    # Compare recent means against expected normal distribution with training parameters
+    if 'intensity_samples' in TRAINING_STATS and len(TRAINING_STATS['intensity_samples']) > 0:
+        ks_statistic, ks_pvalue = stats.ks_2samp(recent_means, TRAINING_STATS['intensity_samples'])
+        
+        if ks_pvalue < 0.01:  # Strong evidence of different distributions
+            drift_warnings.append(f"Distribution shift detected (KS p-value: {ks_pvalue:.4f})")
+            drift_detected = True
+        elif ks_pvalue < 0.05:
+            drift_warnings.append(f"Possible distribution shift (KS p-value: {ks_pvalue:.4f})")
+    
+    # 3. Confidence drift (performance degradation indicator)
+    if 'mean_confidence' in TRAINING_STATS:
+        current_confidence = np.mean(recent_confidences)
+        confidence_drop = TRAINING_STATS['mean_confidence'] - current_confidence
+        
+        if confidence_drop > 0.15:  # 15% drop in confidence
+            drift_warnings.append(f"Significant confidence drop: {confidence_drop:.2%}")
+            drift_detected = True
+        elif confidence_drop > 0.10:
+            drift_warnings.append(f"Moderate confidence drop: {confidence_drop:.2%}")
+    
+    # 4. Standard deviation shift
+    current_std_of_means = np.std(recent_means)
+    if 'std_of_means' in TRAINING_STATS:
+        std_ratio = current_std_of_means / TRAINING_STATS['std_of_means']
+        if std_ratio > 2.0 or std_ratio < 0.5:
+            drift_warnings.append(f"Variability change detected (ratio: {std_ratio:.2f})")
+    
+    return {
+        'drift_detected': drift_detected,
+        'method': 'statistical',
+        'warnings': drift_warnings,
+        'metrics': {
+            'z_score_mean': float(z_score_mean),
+            'current_mean_intensity': float(current_mean),
+            'reference_mean_intensity': float(TRAINING_STATS['mean_intensity']),
+            'current_mean_confidence': float(np.mean(recent_confidences)),
+            'sample_count': len(recent_predictions)
+        }
+    }
+
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(
+    request: Request,
     file: UploadFile = File(..., description="X-ray image file"),
     patient_id: Optional[str] = Header(None, alias="X-Patient-ID"),
     api_key: Optional[str] = Header(None, alias="X-API-Key")
@@ -302,18 +433,27 @@ async def predict(
     Predict pathology from chest X-ray image.
     
     Security:
-    - API key authentication (add proper validation in production)
+    - API key authentication (required)
     - PHI handling: patient_id should be pre-anonymized
     - All predictions logged for audit trail
     """
     start_time = time.time()
     
     try:
-        # API key validation (simplified - use proper auth in production)
+        # API key validation (production-ready)
         if api_key is None:
-            logger.warning("Request without API key")
-            # In production, should reject request
-            # raise HTTPException(status_code=401, detail="API key required")
+            logger.warning(f"Request without API key from {request.client.host}")
+            raise HTTPException(
+                status_code=401, 
+                detail="API key required. Include 'X-API-Key' header with valid key."
+            )
+        
+        if api_key != EXPECTED_API_KEY:
+            logger.warning(f"Invalid API key attempt from {request.client.host}")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API key. Please check your credentials."
+            )
         
         # Read and validate image
         contents = await file.read()
@@ -324,7 +464,7 @@ async def predict(
             logger.warning(f"Invalid image uploaded: {error_msg}")
             raise HTTPException(status_code=400, detail=error_msg)
         
-        # Compute image statistics for drift detection
+        # Compute image statistics for quality checks
         img_array = np.array(image.convert('L'))
         image_stats = {
             'mean': float(np.mean(img_array)),
@@ -332,8 +472,8 @@ async def predict(
             'aspect_ratio': image.size[0] / image.size[1]
         }
         
-        # Detect drift
-        warnings = detect_data_drift(image_stats)
+        # Detect image quality issues
+        warnings = detect_data_quality_issues(image_stats)
         
         # Preprocess
         img_tensor = preprocess_image(image)
@@ -395,6 +535,147 @@ async def predict(
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 
+@app.post("/predict_with_uncertainty", response_model=UncertaintyPredictionResponse)
+async def predict_with_uncertainty_endpoint(
+    request: Request,
+    file: UploadFile = File(..., description="X-ray image file"),
+    patient_id: Optional[str] = Header(None, alias="X-Patient-ID"),
+    api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    mc_iterations: int = 10
+):
+    """
+    Predict pathology with Monte Carlo Dropout uncertainty estimation.
+    
+    This endpoint provides epistemic uncertainty estimates using Bayesian approximation
+    via Monte Carlo Dropout. Higher uncertainty suggests the model is less certain
+    and human review is recommended.
+    
+    Args:
+        mc_iterations: Number of forward passes with dropout (default: 10)
+    """
+    start_time = time.time()
+    
+    try:
+        # API key validation
+        if api_key is None:
+            logger.warning(f"Request without API key from {request.client.host}")
+            raise HTTPException(
+                status_code=401, 
+                detail="API key required. Include 'X-API-Key' header with valid key."
+            )
+        
+        if api_key != EXPECTED_API_KEY:
+            logger.warning(f"Invalid API key attempt from {request.client.host}")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API key. Please check your credentials."
+            )
+        
+        # Read and validate image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        
+        is_valid, error_msg = validate_image(image)
+        if not is_valid:
+            logger.warning(f"Invalid image uploaded: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Compute image statistics for quality checks
+        img_array = np.array(image.convert('L'))
+        image_stats = {
+            'mean': float(np.mean(img_array)),
+            'std': float(np.std(img_array)),
+            'aspect_ratio': image.size[0] / image.size[1]
+        }
+        
+        # Detect image quality issues
+        warnings = detect_data_quality_issues(image_stats)
+        
+        # Preprocess
+        img_tensor = preprocess_image(image)
+        img_tensor = img_tensor.to(DEVICE)
+        
+        # Monte Carlo Dropout prediction
+        mean_probs, uncertainty, all_preds = predict_with_uncertainty(
+            MODEL, img_tensor, DEVICE, n_iterations=mc_iterations
+        )
+        
+        # Extract results
+        mean_probs = mean_probs[0]  # Remove batch dimension
+        uncertainty = uncertainty[0]
+        
+        pred_idx = np.argmax(mean_probs)
+        pred_class = CLASS_NAMES[pred_idx]
+        pred_confidence = float(mean_probs[pred_idx])
+        pred_uncertainty = float(uncertainty[pred_idx])
+        
+        pred_probs = {
+            CLASS_NAMES[i]: float(mean_probs[i])
+            for i in range(len(CLASS_NAMES))
+        }
+        
+        uncertainty_dict = {
+            CLASS_NAMES[i]: float(uncertainty[i])
+            for i in range(len(CLASS_NAMES))
+        }
+        
+        # Calculate overall variance
+        prediction_variance = float(np.mean(uncertainty))
+        
+        # Uncertainty-based warnings
+        if pred_uncertainty > 0.15:
+            warnings.append(f"High epistemic uncertainty ({pred_uncertainty:.3f}) - model is uncertain about this prediction")
+        elif pred_uncertainty > 0.10:
+            warnings.append(f"Moderate uncertainty ({pred_uncertainty:.3f}) - consider expert review")
+        
+        # Low confidence warning
+        if pred_confidence < 0.7:
+            warnings.append(f"Low confidence prediction ({pred_confidence:.2f}) - recommend expert review")
+        
+        # Log prediction
+        prediction_log_entry = {
+            'timestamp': time.time(),
+            'prediction': pred_class,
+            'confidence': pred_confidence,
+            'uncertainty': pred_uncertainty,
+            'patient_id': patient_id,
+            'inference_time_ms': (time.time() - start_time) * 1000,
+            'image_stats': image_stats,
+            'warnings': warnings,
+            'mc_iterations': mc_iterations
+        }
+        PREDICTION_LOG.append(prediction_log_entry)
+        
+        # Keep only last 1000 predictions
+        if len(PREDICTION_LOG) > 1000:
+            PREDICTION_LOG.pop(0)
+        
+        # Audit log
+        logger.info(f"MC Prediction made: {pred_class} (confidence: {pred_confidence:.3f}, "
+                   f"uncertainty: {pred_uncertainty:.3f}, patient_id: {patient_id or 'anonymous'}, "
+                   f"time: {prediction_log_entry['inference_time_ms']:.1f}ms)")
+        
+        response = UncertaintyPredictionResponse(
+            prediction=pred_class,
+            confidence=pred_confidence,
+            probabilities=pred_probs,
+            uncertainty=uncertainty_dict,
+            prediction_variance=prediction_variance,
+            mc_iterations=mc_iterations,
+            model_version="1.0.0",
+            timestamp=datetime.utcnow().isoformat(),
+            warnings=warnings
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"MC Prediction error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
 @app.post("/batch_predict")
 async def batch_predict(files: List[UploadFile] = File(...)):
     """Batch prediction endpoint for multiple images."""
@@ -414,7 +695,11 @@ async def batch_predict(files: List[UploadFile] = File(...)):
 
 @app.get("/drift_report")
 async def get_drift_report():
-    """Get data drift analysis report."""
+    """
+    Get comprehensive data drift analysis report.
+    
+    Compares recent predictions against training distribution using statistical tests.
+    """
     if not PREDICTION_LOG:
         return {"message": "No predictions yet"}
     
@@ -427,7 +712,11 @@ async def get_drift_report():
     mean_intensities = [p['image_stats']['mean'] for p in recent_predictions]
     confidences = [p['confidence'] for p in recent_predictions]
     
-    return {
+    # Statistical drift detection
+    drift_analysis = detect_data_drift(recent_window_size=min(100, len(recent_predictions)))
+    
+    # Basic metrics
+    basic_metrics = {
         "period": "last_24_hours",
         "total_predictions": len(recent_predictions),
         "average_confidence": float(np.mean(confidences)),
@@ -437,9 +726,77 @@ async def get_drift_report():
             "mean_intensity": float(np.mean(mean_intensities)),
             "intensity_std": float(np.std(mean_intensities))
         },
-        "warnings_rate": sum(1 for p in recent_predictions if p['warnings']) / len(recent_predictions),
-        "recommendation": "Monitor if confidence drops below 0.8 or warning rate exceeds 20%"
+        "warnings_rate": sum(1 for p in recent_predictions if p['warnings']) / len(recent_predictions)
     }
+    
+    # Combine with drift analysis
+    report = {
+        **basic_metrics,
+        "drift_detection": drift_analysis,
+        "recommendation": _generate_recommendation(basic_metrics, drift_analysis)
+    }
+    
+    return report
+
+
+def predict_with_uncertainty(model, img_tensor, device, n_iterations=10):
+    """
+    Perform Monte Carlo Dropout for uncertainty estimation.
+    
+    This enables dropout during inference and runs multiple forward passes
+    to estimate epistemic (model) uncertainty.
+    
+    Args:
+        model: PyTorch model
+        img_tensor: Input tensor
+        device: Device to run on
+        n_iterations: Number of MC iterations
+        
+    Returns:
+        mean_probs: Mean probabilities across iterations
+        uncertainty: Standard deviation (epistemic uncertainty)
+        all_predictions: All probability predictions
+    """
+    model.train()  # Enable dropout
+    
+    predictions = []
+    with torch.no_grad():
+        for _ in range(n_iterations):
+            outputs = model(img_tensor)
+            probabilities = F.softmax(outputs, dim=1)
+            predictions.append(probabilities.cpu().numpy())
+    
+    predictions = np.array(predictions)  # Shape: (n_iterations, batch_size, n_classes)
+    
+    # Compute statistics
+    mean_probs = predictions.mean(axis=0)  # Mean across iterations
+    uncertainty = predictions.std(axis=0)   # Epistemic uncertainty
+    
+    model.eval()  # Restore eval mode
+    
+    return mean_probs, uncertainty, predictions
+
+
+def _generate_recommendation(basic_metrics: dict, drift_analysis: dict) -> str:
+    """Generate actionable recommendation based on metrics and drift detection."""
+    recommendations = []
+    
+    if drift_analysis.get('drift_detected'):
+        recommendations.append("⚠️ ALERT: Significant data drift detected - immediate review recommended")
+    
+    if basic_metrics['average_confidence'] < 0.7:
+        recommendations.append("Low average confidence - consider model retraining")
+    
+    if basic_metrics['low_confidence_rate'] > 0.3:
+        recommendations.append("High rate of low-confidence predictions - increase human review")
+    
+    if basic_metrics['warnings_rate'] > 0.2:
+        recommendations.append("Elevated warning rate - check data quality at source")
+    
+    if not recommendations:
+        return "✓ System operating normally - continue monitoring"
+    
+    return " | ".join(recommendations)
 
 
 def main():
