@@ -1,12 +1,21 @@
 """
 Test script for the FastAPI inference API.
+
+Note: This test script uses the API key from the CXR_API_KEY environment variable.
+For development testing, it defaults to the development key.
+
+Example:
+    export CXR_API_KEY="dev-key-please-change-in-production"
+    python tests/test_api.py
 """
 
 import requests
 import json
+import os
 from pathlib import Path
 
 API_URL = "http://localhost:8001"
+API_KEY = os.getenv("CXR_API_KEY", "dev-key-please-change-in-production")
 
 
 def test_health():
@@ -31,7 +40,7 @@ def test_root():
 
 
 def test_predict():
-    """Test prediction endpoint."""
+    """Test prediction endpoint with API key authentication."""
     print("\n=== Testing Prediction Endpoint ===")
     
     # Find a test image
@@ -45,12 +54,13 @@ def test_predict():
     
     test_image = test_images[0]
     print(f"Using test image: {test_image}")
+    print(f"Using API key: {API_KEY[:20]}..." if len(API_KEY) > 20 else API_KEY)
     
     with open(test_image, "rb") as f:
         files = {"file": (test_image.name, f, "image/jpeg")}
         headers = {
             "X-Patient-ID": "test_patient_001",
-            "X-API-Key": "test_key_123"
+            "X-API-Key": API_KEY
         }
         
         response = requests.post(
@@ -96,6 +106,9 @@ def main():
     """Run all tests."""
     print("=" * 60)
     print("API Testing Suite")
+    print("=" * 60)
+    print(f"API URL: {API_URL}")
+    print(f"API Key: {API_KEY[:20]}..." if len(API_KEY) > 20 else API_KEY)
     print("=" * 60)
     
     try:
