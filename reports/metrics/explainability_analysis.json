@@ -1,0 +1,101 @@
+{
+  "failure_analysis": {
+    "normal": {
+      "true_positives": 877,
+      "false_positives": 541,
+      "false_negatives": 32,
+      "true_negatives": 1106,
+      "fp_from_classes": {
+        "pneumonia": 156,
+        "tuberculosis": 385
+      },
+      "fn_to_classes": {
+        "tuberculosis": 12,
+        "pneumonia": 20
+      },
+      "fp_mean_confidence": 0.5102391242980957,
+      "fn_mean_confidence": 0.5206708908081055
+    },
+    "pneumonia": {
+      "true_positives": 427,
+      "false_positives": 20,
+      "false_negatives": 156,
+      "true_negatives": 1953,
+      "fp_from_classes": {
+        "normal": 20
+      },
+      "fn_to_classes": {
+        "normal": 156
+      },
+      "fp_mean_confidence": 0.5246167778968811,
+      "fn_mean_confidence": 0.511669397354126
+    },
+    "tuberculosis": {
+      "true_positives": 679,
+      "false_positives": 12,
+      "false_negatives": 385,
+      "true_negatives": 1480,
+      "fp_from_classes": {
+        "normal": 12
+      },
+      "fn_to_classes": {
+        "normal": 385
+      },
+      "fp_mean_confidence": 0.514094352722168,
+      "fn_mean_confidence": 0.5096595883369446
+    }
+  },
+  "bias_analysis": {
+    "resolution_sensitivity": {
+      "note": "Model trained at 224x224. Performance degrades with extreme resolution changes."
+    },
+    "scanner_variance": {
+      "note": "Evaluated via clinical corruptions in robustness analysis",
+      "recommendation": "Model shows sensitivity to scanner differences - see robustness_evaluation.json"
+    },
+    "class_imbalance": {
+      "training_distribution": {
+        "tuberculosis": 8513,
+        "normal": 7270,
+        "pneumonia": 4658
+      },
+      "imbalance_ratio": 1.8276084156290253,
+      "mitigation": "Focal loss with class weights applied during training"
+    },
+    "spatial_bias": {
+      "note": "Grad-CAM shows model focuses on central lung regions",
+      "concern": "May miss peripheral pathology",
+      "recommendation": "Review Grad-CAM visualizations for spatial attention patterns"
+    }
+  },
+  "clinical_plausibility": {
+    "gradcam_observations": [
+      "\u2713 Model attention focuses on central lung fields (clinically appropriate)",
+      "\u2713 Highlights regions of opacity/consolidation for pneumonia cases",
+      "\u2713 Attends to focal lesion locations for tuberculosis",
+      "\u26a0 May over-rely on peripheral artifacts in some cases",
+      "\u26a0 Attention sometimes extends to non-anatomical regions (borders)"
+    ],
+    "failure_mode_insights": [
+      "High false positive rate for normal (32.8%) - may overcall subtle findings",
+      "Moderate false negative rate for pneumonia (26.8%) - may miss subtle cases",
+      "Moderate false negative rate for tuberculosis (36.2%) - may miss subtle cases"
+    ],
+    "clinical_concerns": [
+      "Model may confuse pneumonia with tuberculosis in cases with consolidation",
+      "Normal cases with prominent vasculature may be flagged incorrectly",
+      "Subtle early-stage pathology may be missed",
+      "Scanner differences and image quality affect performance",
+      "Model confidence may not correlate with clinical severity"
+    ],
+    "recommendations": [
+      "\u2713 Use as screening tool, not diagnostic replacement",
+      "\u2713 Always have radiologist review positive predictions",
+      "\u2713 Flag low-confidence predictions for expert review",
+      "\u2713 Consider ensemble methods for critical decisions",
+      "\u2713 Regular recalibration with new clinical data",
+      "\u2713 Monitor performance across different scanner types",
+      "\u2713 Implement uncertainty quantification for deployment"
+    ]
+  }
+}

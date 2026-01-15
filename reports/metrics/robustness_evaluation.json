@@ -1,0 +1,87 @@
+{
+  "clean": {
+    "accuracy": 0.7746478873239436,
+    "f1_per_class": {
+      "normal": 0.747589833479404,
+      "pneumonia": 0.8395522388059702,
+      "tuberculosis": 0.770193401592719
+    },
+    "auc_per_class": {
+      "normal": 0.8832630986231591,
+      "pneumonia": 0.9884021772487762,
+      "tuberculosis": 0.9408373480618437
+    },
+    "f1_macro": 0.7857784912926977,
+    "auc_macro": 0.9375008746445929
+  },
+  "clinical_corruptions": {
+    "accuracy": 0.7640845070422535,
+    "f1_per_class": {
+      "normal": 0.676056338028169,
+      "pneumonia": 0.840630472854641,
+      "tuberculosis": 0.7994350282485876
+    },
+    "auc_per_class": {
+      "normal": 0.7997415709998444,
+      "pneumonia": 0.9856110667249723,
+      "tuberculosis": 0.8946303846076317
+    },
+    "f1_macro": 0.7720406130437992,
+    "auc_macro": 0.8933276741108162
+  },
+  "severe_corruptions": {
+    "accuracy": 0.7734741784037559,
+    "f1_per_class": {
+      "normal": 0.7141424272818455,
+      "pneumonia": 0.8659966499162479,
+      "tuberculosis": 0.7775467775467776
+    },
+    "auc_per_class": {
+      "normal": 0.8503887122166983,
+      "pneumonia": 0.986749940665537,
+      "tuberculosis": 0.9129678460561592
+    },
+    "f1_macro": 0.785895284914957,
+    "auc_macro": 0.9167021663127981
+  },
+  "performance_drift_clinical": {
+    "accuracy_drop": 0.010563380281690127,
+    "f1_drop": 0.013737878248898494,
+    "auc_drop": 0.04417320053377671
+  },
+  "performance_drift_severe": {
+    "accuracy_drop": 0.0011737089201877549,
+    "f1_drop": -0.00011679362225924805,
+    "auc_drop": 0.020798708331794757
+  },
+  "embedding_drift_clinical": {
+    "cosine_distance": 0.2389844267305764,
+    "norm_shift": 1.4164619445800781,
+    "frechet_distance": 257.9688043512406
+  },
+  "embedding_drift_severe": {
+    "cosine_distance": 0.5486220179154904,
+    "norm_shift": 4.267009735107422,
+    "frechet_distance": 318.72680086181356
+  },
+  "confidence_shift_clinical": {
+    "mean_confidence_clean": 0.7563696503639221,
+    "mean_confidence_corrupted": 0.7629495859146118,
+    "std_confidence_clean": 0.2330217808485031,
+    "std_confidence_corrupted": 0.21800439059734344,
+    "confidence_drop": -0.006579935550689697
+  },
+  "confidence_shift_severe": {
+    "mean_confidence_clean": 0.7563696503639221,
+    "mean_confidence_corrupted": 0.6878586411476135,
+    "std_confidence_clean": 0.2330217808485031,
+    "std_confidence_corrupted": 0.2009827047586441,
+    "confidence_drop": 0.0685110092163086
+  },
+  "recommendations": [
+    "High embedding drift detected. Recommendation: Consider domain adaptation techniques or self-supervised pretraining.",
+    "Collect diverse training data from multiple scanners/hospitals for better generalization.",
+    "Implement uncertainty quantification to flag low-confidence predictions for human review.",
+    "Regular recalibration with new data from deployment environment."
+  ]
+}
