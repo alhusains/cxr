@@ -384,34 +384,34 @@ batch_size: 32
 *Figure 13: Grad-CAM visualizations showing model attention patterns for each class. Heatmaps highlight the regions the model focuses on when making predictions.*
 
 **Validation:**
-- Model attention aligns with clinically relevant anatomical regions
-- No evidence of spurious correlations
-- Heatmaps provide interpretable and clinically meaningful explanations
+- Model attention aligns with diagnostically relevant lung regions
+- No evidence of spurious correlations (e.g., text overlays, borders, equipment markers)
+- Heatmaps provide interpretable explanations focused on pathological features
 
 ### 6.2 Failure Mode Analysis
 
 **False Positives (Normal → Pathology):**
 - **Count:** 173 (19%)
 - **Patterns:**
-  - Obscured anatomical structures (rotated, poorly positioned)
-  - Artifacts (pacemakers, catheters) mistaken for infiltrates
-  - Subtle parenchymal changes (early disease?)
+  - Poor image positioning or anatomical obscuration
+  - Medical devices or artifacts in the image
+  - Subtle textural changes difficult to classify
 
 **False Negatives (Pathology → Normal):**
 - **Count:** 126 (14%)
 - **Patterns:**
-  - Mild/early disease (subtle findings)
-  - Overlapping features (pneumonia + TB characteristics)
-  - Poor image quality (underexposed, low contrast)
+  - Early-stage disease with minimal visual markers
+  - Overlapping visual features between disease classes
+  - Low-quality images (underexposure, poor contrast)
 
 **Most Confused Classes:**
-- **Pneumonia ↔ Tuberculosis:** 267 confusions (both show infiltrates)
-  - Overlap: Both present as lung opacities
-  - Differentiator: TB more apical, cavitations
+- **Pneumonia ↔ Tuberculosis:** 267 confusions
+  - Both classes present similar opacity patterns in lung tissue
+  - Visual differentiation requires subtle texture analysis
 
-**Clinical Implications:**
-- Conservative bias (better to over-flag than miss)
-- Human review essential for borderline cases
+**Implications:**
+- Model exhibits conservative bias (prioritizes sensitivity over specificity)
+- Human expert review recommended for borderline predictions
 
 ### 6.3 Bias Analysis
 
@@ -426,9 +426,9 @@ batch_size: 32
 - **Conclusion:** Moderate scanner robustness; may require calibration per site
 
 **Class Imbalance Effects:**
-- **Observation:** Pneumonia (least samples) has lowest recall
-- **Mitigation:** Focal Loss helps but not fully resolves
-- **Recommendation:** Collect more pneumonia examples
+- **Observation:** Pneumonia (22.8% of dataset) shows lowest recall
+- **Mitigation:** Focal Loss addresses this partially but not completely
+- **Recommendation:** Additional data collection for minority class
 
 **Image Crop Sensitivity:**
 - **Test:** Centered vs. off-center crops
@@ -461,10 +461,10 @@ batch_size: 32
 - Compute mean prediction and standard deviation across iterations
 - Standard deviation = epistemic (model) uncertainty
 
-**Clinical Interpretation:**
-- **High uncertainty (σ > 0.15):** Model is uncertain → mandatory expert review
-- **Moderate uncertainty (0.10 < σ < 0.15):** Consider expert review
-- **Low uncertainty (σ < 0.10):** Model is confident
+**Interpretation:**
+- **High uncertainty (σ > 0.15):** Low model confidence → mandatory expert review
+- **Moderate uncertainty (0.10 < σ < 0.15):** Borderline confidence → consider expert review
+- **Low uncertainty (σ < 0.10):** High model confidence
 
 **Benefits:**
 - Identifies out-of-distribution samples
@@ -593,38 +593,6 @@ batch_size: 32
 - Immutable logs (tamper-proof)
 - Security event tracking (authentication failures, rate limiting)
 
-### 7.7 Incident Response
-
-**Severity Levels:**
-- **P0 (Critical):** System down → Immediate response, activate DR
-- **P1 (High):** Degraded → 15 min response, investigate
-- **P2 (Medium):** Drift detected → 1 hour, ML team review
-- **P3 (Low):** Minor issues → 4 hours, scheduled fix
-
-**Rollback Procedure:**
-```bash
-docker pull cxr-api:previous_version
-docker-compose down && docker-compose up -d
-```
-
-### 7.8 Scalability
-
-**Current Capacity:**
-- Single GPU: ~50 predictions/second
-- Latency: < 100ms per image
-
-**Scaling Strategy:**
-- Horizontal scaling (multiple GPU instances)
-- Load balancer (distribute traffic)
-- Batch processing (non-urgent cases)
-- Model optimization (TensorRT, ONNX)
-
-**Target SLA:**
-- 99.9% uptime
-- < 500ms latency (p95)
-- < 0.1% error rate
-
----
 
 ## 8. Reproducibility
 
