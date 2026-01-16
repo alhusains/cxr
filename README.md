@@ -1,10 +1,10 @@
 # Chest X-Ray Classification System
 
-A production-ready deep learning system for automated chest X-ray pathology classification
 ![Demo](reports/figures/UI-demo.gif)
+
 ## Overview
 
-This system classifies chest X-rays into three categories: **Normal**, **Pneumonia**, and **Tuberculosis**, achieving strong performance with robust deployment infrastructure for clinical integration.
+This production-ready deep learning system classifies chest X-rays into three categories: **Normal**, **Pneumonia**, and **Tuberculosis**, achieving strong performance with robust deployment infrastructure for clinical integration.
 
 ### Key Highlights
 
