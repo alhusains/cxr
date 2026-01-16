@@ -1,24 +1,14 @@
 # Technical Report: Chest X-Ray Classification System
 
-## Executive Summary
+## 1. Executive Summary
 
-This report presents a comprehensive deep learning system for automated chest X-ray classification, distinguishing between **Normal**, **Pneumonia**, and **Tuberculosis** cases. The system achieves **77.8% accuracy** and **0.94 macro AUC-ROC**, demonstrating strong performance across all classes with robust safeguards for clinical deployment.
+This report presents a comprehensive description and evaluation of a deep learning framework developed for automated chest X-ray classification, distinguishing between **Normal**, **Pneumonia**, and **Tuberculosis** cases. This system achieves **77.8% accuracy** and **0.94 macro AUC-ROC**, demonstrating strong performance across all classes with robust safeguards for clinical deployment.
 
 **Key Achievements:**
 - Production-ready FastAPI deployment with monitoring
 - Explainable AI using Grad-CAM for clinical validation
 - Comprehensive robustness evaluation against data drift
 - Docker containerization for reproducible deployment
-
----
-
-## 1. Problem Statement
-
-### 1.1 Objective
-Develop an automated classification system for chest X-rays to assist radiologists in detecting:
-- **Normal:** Healthy chest X-rays
-- **Pneumonia:** Bacterial/viral lung infection
-- **Tuberculosis:** Mycobacterial infection
 
 ---
 
@@ -393,26 +383,9 @@ batch_size: 32
 ![Grad-CAM Examples](reports/figures/gradcam_examples.png)
 *Figure 13: Grad-CAM visualizations showing model attention patterns for each class. Heatmaps highlight the regions the model focuses on when making predictions.*
 
-**Qualitative Assessment:**
-
-**Normal Cases:**
-- ✓ Highlights: Lung fields, diaphragm, costophrenic angles
-- ✓ Plausible: Symmetric attention to bilateral lungs
-- ✓ Clinical Validity: Focuses on diagnostic regions
-
-**Pneumonia Cases:**
-- ✓ Highlights: Infiltrates, consolidations (opaque regions)
-- ✓ Localizes: Typically lower lobes (anatomically correct)
-- ✓ Clinical Consistency: Matches expected pneumonia presentation patterns
-
-**Tuberculosis Cases:**
-- ✓ Highlights: Upper lobe infiltrates, cavitations
-- ✓ Consistent: With known TB distribution (apical predominance)
-- ✓ Sharp focus: On lesions, not background artifacts
-
 **Validation:**
 - Model attention aligns with clinically relevant anatomical regions
-- No evidence of spurious correlations (text overlays, borders, equipment)
+- No evidence of spurious correlations
 - Heatmaps provide interpretable and clinically meaningful explanations
 
 ### 6.2 Failure Mode Analysis
