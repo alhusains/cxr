@@ -1,7 +1,7 @@
 # Chest X-Ray Classification System
 
 A production-ready deep learning system for automated chest X-ray pathology classification
-
+![Demo](reports/figures/UI-demo.gif)
 ## Overview
 
 This system classifies chest X-rays into three categories: **Normal**, **Pneumonia**, and **Tuberculosis**, achieving strong performance with robust deployment infrastructure for clinical integration.
@@ -131,24 +131,6 @@ This repository includes comprehensive documentation:
 └── TECHNICAL_REPORT.md      # Main technical report
 ```
 
-## Model Architecture
-
-**DenseNet-121** (ImageNet pretrained) with custom classification head
-
-**Rationale**: 
-- Proven effectiveness in medical imaging (CheXNet)
-- Efficient parameter usage (7.5M vs ResNet-50's 25M)
-- Dense connections improve gradient flow and feature reuse
-- Superior performance on chest X-ray classification tasks
-
-**Loss Function**: Focal Loss (α=0.25, γ=2.0) to address class imbalance
-
-**Hyperparameters**: Optimized via Bayesian search (Optuna) over 15 trials
-- Learning rate: 3.5e-4
-- Weight decay: 1.2e-5
-- Dropout: 0.52
-- Batch size: 16
-
 ## Performance Summary
 
 ### Test Set Metrics
@@ -185,7 +167,7 @@ Clinical corruptions simulate realistic scanner variations (brightness/contrast 
 | `/` | GET | **Interactive web demo** |
 | `/health` | GET | Service health check |
 | `/predict` | POST | Single image prediction |
-| `/predict_with_uncertainty` | POST | **Prediction with MC Dropout uncertainty** |
+| `/predict_with_uncertainty` | POST | Prediction with MC Dropout uncertainty |
 | `/batch_predict` | POST | Batch predictions (max 10) |
 | `/metrics` | GET | API performance metrics |
 | `/drift_report` | GET | Data drift analysis |
@@ -212,50 +194,6 @@ print(f"Prediction: {result['prediction']}")
 print(f"Confidence: {result['confidence']:.2%}")
 print(f"Probabilities: {result['probabilities']}")
 ```
-
-## Explainability
-
-Grad-CAM visualizations demonstrate that the model focuses on clinically relevant regions:
-- **Normal**: Bilateral lung fields, costophrenic angles
-- **Pneumonia**: Infiltrates and consolidations (lower lobes)
-- **Tuberculosis**: Upper lobe infiltrates and cavitations
-
-All visualizations available in `reports/figures/gradcam_examples.png`
-
-## Deployment Features
-
-### Interactive Demo
-- **Web-based UI** for uploading X-rays and viewing predictions in real-time
-- Visual probability bars and confidence scores
-- Warning display for quality issues and uncertainty
-- No external dependencies - served directly from FastAPI
-
-### Uncertainty Quantification
-- **Monte Carlo Dropout** for Bayesian uncertainty estimation
-- Epistemic uncertainty per class (model uncertainty)
-- Automatic warnings for high-uncertainty predictions
-- Safer clinical deployment with uncertainty-aware decision-making
-
-### Monitoring
-- Real-time prediction latency tracking
-- **Statistical data drift detection** using Kolmogorov-Smirnov test and z-score analysis
-- Comparison of incoming data against training distribution reference
-- Performance metrics aggregation
-- Automated alerting for anomalies (confidence drops, distribution shifts)
-
-### Security & Compliance
-- HIPAA-compliant PHI handling (no image storage, anonymized IDs)
-- TLS encryption for data transmission
-- **Production-ready API key authentication** (environment variable configuration)
-- Comprehensive audit trails (7-year retention)
-- Request logging with client IP tracking
-- Incident response procedures
-
-### Scalability
-- Docker containerization for consistent deployment
-- Horizontal scaling support
-- Batch processing capability
-- Model versioning with MLflow registry
 
 ## Reproducibility
 
@@ -297,22 +235,3 @@ make format
 - Classes: Normal (35.6%), Pneumonia (22.8%), Tuberculosis (41.6%)
 - Splits: Train (80%), Validation (10%), Test (10%)
 - Resolution: Mean 1,342×1,215 pixels
-
-## System Requirements
-
-**Minimum**:
-- Python 3.8+
-- 8GB RAM
-- 10GB disk space
-
-**Recommended**:
-- Python 3.10+
-- NVIDIA GPU with 8GB+ VRAM (CUDA 11.8+)
-- 16GB RAM
-
-**Tested On**:
-- Ubuntu 22.04 LTS
-- Python 3.10
-- CUDA 12.1
-- PyTorch 2.9
-
